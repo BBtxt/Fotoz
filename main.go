@@ -58,6 +58,7 @@ func processPhoto(photoPath string, absPhotoDir string, baseDir string) {
 	// - baseDir: the base directory where the organized photos will be stored.
 	//
 	// Returns: None.
+
 	file, err := os.Open(photoPath)
 	if err != nil {
 		log.Printf("Error opening file %s: %v", photoPath, err)
@@ -125,6 +126,12 @@ func processPhoto(photoPath string, absPhotoDir string, baseDir string) {
 }
 
 func getYearQuarter(month time.Month) (year, quarter int) {
+	// getYearQuarter returns the year and quarter corresponding to a given month.
+	//
+	// month: the month for which to determine the year and quarter.
+	// year: the year corresponding to the given month.
+	// quarter: the quarter corresponding to the given month.
+
 	switch {
 	case month >= time.January && month <= time.March:
 		return time.Now().Year(), 1
@@ -138,6 +145,14 @@ func getYearQuarter(month time.Month) (year, quarter int) {
 }
 
 func moveFile(src, dest string) error {
+	// moveFile moves a file from the source directory to the destination directory.
+	//
+	// Parameters:
+	// - src: the source directory of the file.
+	// - dest: the destination directory where the file will be moved.
+	//
+	// Return type:
+	// - error: returns an error if the file cannot be moved.
 	err := os.Rename(src, dest)
 	if err != nil {
 		return err
