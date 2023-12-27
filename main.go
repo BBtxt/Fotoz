@@ -2,45 +2,62 @@ package main
 
 import (
 	"fmt"
-	"io"
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/rwcarlsen/goexif/exif"
 )
 
 func main() {
-	if len(os.Args) < 2 {
+	// Check command line arguments
+	if len(os.Args) < 3 {
 		log.Println("Usage: <program> <path to directory>")
 		return
 	}
-
+	// this is the directory containing the photos, the first argument on the script
 	photoDir := os.Args[1]
+
+	// this is the directory that the photos will be moved to, the second argument on the script
+	baseDir, err := filepath.Abs(os.Args[2])
+	if err != nil {
+		log.Println("Error resolving base directory path:", err)
+		return
+	}
+	// this is the directory that the photos will be moved to, the second argument on the script
 	absPhotoDir, err := filepath.Abs(photoDir)
 	if err != nil {
 		log.Println("Error resolving directory path:", err)
 		return
 	}
-
+	// this is the directory that the photos will be moved to, the second argument on the script
 	files, err := os.ReadDir(absPhotoDir)
 	if err != nil {
 		log.Println("Error reading directory:", err)
 		return
 	}
-
+	// Process each photo
 	for _, file := range files {
 		if file.IsDir() {
 			continue // Skip directories
 		}
 
 		filePath := filepath.Join(absPhotoDir, file.Name())
-		processPhoto(filePath) // Process each photo
+		processPhoto(filePath, absPhotoDir, baseDir) // Process each photo
 	}
 }
 
-func processPhoto(photoPath string) {
+func processPhoto(photoPath string, absPhotoDir string, baseDir string) {
+	// processPhoto organizes a photo by extracting its Exif data, creating a directory structure based on the camera model, year, and quarter, and moving related files to the appropriate directory.
+	//
+	// Parameters:
+	// - photoPath: the path to the photo file.
+	// - absPhotoDir: the absolute path to the directory containing the photo file.
+	// - baseDir: the base directory where the organized photos will be stored.
+	//
+	// Returns: None.
 	file, err := os.Open(photoPath)
 	if err != nil {
 		log.Printf("Error opening file %s: %v", photoPath, err)
@@ -68,7 +85,7 @@ func processPhoto(photoPath string) {
 
 	year, quarter := getYearQuarter(time.Month())
 
-	baseDir := filepath.Join("/", "/Users/brandonbaker/Pictures/")
+	// newDirName := "OrganizedPhotos"
 	cameraDir := filepath.Join(baseDir, model)
 	yearDir := filepath.Join(cameraDir, fmt.Sprintf("%d", year))
 	quarterDir := filepath.Join(yearDir, fmt.Sprintf("Q%d", quarter))
@@ -79,14 +96,32 @@ func processPhoto(photoPath string) {
 		return
 	}
 
-	newFilePath := filepath.Join(quarterDir, filepath.Base(photoPath))
-	err = copyFile(photoPath, newFilePath)
+	baseName := filepath.Base(photoPath)
+	nameWithoutExt := baseName[:len(baseName)-len(filepath.Ext(baseName))]
+
+	// Move all related files
+	files, err := os.ReadDir(absPhotoDir)
 	if err != nil {
-		log.Printf("Error copying/moving file %s: %v", photoPath, err)
+		log.Println("Error reading directory to find matching files:", err)
 		return
 	}
 
-	fmt.Printf("File %s moved to: %s\n", photoPath, newFilePath)
+	for _, file := range files {
+		if file.IsDir() {
+			continue
+		}
+
+		if strings.HasPrefix(file.Name(), nameWithoutExt) {
+			srcFilePath := filepath.Join(absPhotoDir, file.Name())
+			destFilePath := filepath.Join(quarterDir, file.Name())
+			err = moveFile(srcFilePath, destFilePath)
+			if err != nil {
+				log.Printf("Error moving file %s to %s: %v", srcFilePath, destFilePath, err)
+			} else {
+				fmt.Printf("File %s moved to: %s\n", srcFilePath, destFilePath)
+			}
+		}
+	}
 }
 
 func getYearQuarter(month time.Month) (year, quarter int) {
@@ -102,20 +137,8 @@ func getYearQuarter(month time.Month) (year, quarter int) {
 	}
 }
 
-func copyFile(src, dest string) error {
-	sourceFile, err := os.Open(src)
-	if err != nil {
-		return err
-	}
-	defer sourceFile.Close()
-
-	destFile, err := os.Create(dest)
-	if err != nil {
-		return err
-	}
-	defer destFile.Close()
-
-	_, err = io.Copy(destFile, sourceFile)
+func moveFile(src, dest string) error {
+	err := os.Rename(src, dest)
 	if err != nil {
 		return err
 	}
