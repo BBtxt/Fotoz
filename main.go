@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"path/filepath"
 	"time"
@@ -11,62 +12,81 @@ import (
 )
 
 func main() {
-	photoDir := "test_assets/_R000372.DNG"
+	if len(os.Args) < 2 {
+		log.Println("Usage: <program> <path to directory>")
+		return
+	}
 
-	//Open Image
+	photoDir := os.Args[1]
+	absPhotoDir, err := filepath.Abs(photoDir)
+	if err != nil {
+		log.Println("Error resolving directory path:", err)
+		return
+	}
+
+	files, err := os.ReadDir(absPhotoDir)
+	if err != nil {
+		log.Println("Error reading directory:", err)
+		return
+	}
+
+	for _, file := range files {
+		if file.IsDir() {
+			continue // Skip directories
+		}
+
+		filePath := filepath.Join(absPhotoDir, file.Name())
+		processPhoto(filePath) // Process each photo
+	}
+}
+
+func processPhoto(photoPath string) {
 	file, err := os.Open(photoPath)
 	if err != nil {
-		fmt.Println("Error processing image file", err)
+		log.Printf("Error opening file %s: %v", photoPath, err)
 		return
 	}
-	//Close Image
 	defer file.Close()
 
-	//Get Exif Data
 	exifData, err := exif.Decode(file)
 	if err != nil {
-		fmt.Println("Error decoding Exif data from image", err)
+		log.Printf("Error decoding Exif data from image %s: %v", photoPath, err)
 		return
 	}
 
-	// Extract camera model and date taken
 	modelTag, _ := exifData.Get(exif.Model)
 	dateTakenTag, _ := exifData.Get(exif.DateTime)
 
 	model, _ := modelTag.StringVal()
 	dateTaken, _ := dateTakenTag.StringVal()
 
-	// Parse date taken into year and quarter
 	time, err := time.Parse("2006:01:02 15:04:05", dateTaken)
 	if err != nil {
-		fmt.Println("Error parsing date:", err)
+		log.Printf("Error parsing date from image %s: %v", photoPath, err)
 		return
 	}
 
 	year, quarter := getYearQuarter(time.Month())
 
-	// Create directory structure
-	baseDir := filepath.Join("/", "/Users/brandonbaker/Pictures/") // Replace with your base directory
+	baseDir := filepath.Join("/", "/Users/brandonbaker/Pictures/")
 	cameraDir := filepath.Join(baseDir, model)
 	yearDir := filepath.Join(cameraDir, fmt.Sprintf("%d", year))
 	quarterDir := filepath.Join(yearDir, fmt.Sprintf("Q%d", quarter))
 
-	// Create directories if they don't exist
 	err = os.MkdirAll(quarterDir, os.ModePerm)
 	if err != nil {
-		fmt.Println("Error creating directories:", err)
+		log.Printf("Error creating directories for image %s: %v", photoPath, err)
 		return
 	}
 
-	// Copy or move the photo to the new directory
 	newFilePath := filepath.Join(quarterDir, filepath.Base(photoPath))
-	err = copyFile(photoPath, newFilePath) // Implement a function to copy or move the file
+	err = copyFile(photoPath, newFilePath)
 	if err != nil {
-		fmt.Println("Error copying/moving file:", err)
+		log.Printf("Error copying/moving file %s: %v", photoPath, err)
 		return
 	}
 
-	fmt.Println("File moved to:", newFilePath)
+	fmt.Printf("File %s moved to: %s\n", photoPath, newFilePath)
 }
 
 func getYearQuarter(month time.Month) (year, quarter int) {
@@ -101,4 +121,3 @@ func copyFile(src, dest string) error {
 	}
 	return nil
 }
-
