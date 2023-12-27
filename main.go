@@ -11,7 +11,7 @@ import (
 )
 
 func main() {
-	photoPath := "test_assets/_R000372.DNG"
+	photoDir := "test_assets/_R000372.DNG"
 
 	//Open Image
 	file, err := os.Open(photoPath)
@@ -101,3 +101,4 @@ func copyFile(src, dest string) error {
 	}
 	return nil
 }
+
